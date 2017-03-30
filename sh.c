@@ -94,7 +94,7 @@ runcmd(struct cmd *cmd)
     if(ecmd->argv[0][0] == 47){                                 //char: '/'
         printf(2, "exec %s failed\n", ecmd->argv[0]);
         break;
-    }*/
+    }
     
     //A case of relative path, look for the binary in all directories defined by PATH if and only if user provided:  
     else {
