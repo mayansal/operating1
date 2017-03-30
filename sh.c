@@ -73,57 +73,90 @@ runcmd(struct cmd *cmd)
   default:
     panic("runcmd");
 
-// //TODO:1. testing - in general and especially I/O redirection
-//        2. make the buffer in file size and not max size
-//        3. make the code look cleaner.
+// TODO:  1. testing - in general and especially I/O redirection (david wrote a file).
+//        2. make the buffer in file size and not max size, also check what is the logical MAX_SIZE.
+ 
     
-//changed - 1.1 - start:
+//Changed - 1.1 - start:
   case EXEC:
     ecmd = (struct execcmd*)cmd;
-    if(ecmd->argv[0] == 0)
-      exit();
+    //Command is enter/empty:
+    if(ecmd->argv[0] == 0){
+         exit();
+    }
+    
+    //Try to execute command regulary:
     exec(ecmd->argv[0], ecmd->argv);
     
-    //here == we didn't exec as we should. try to find another directory:
-    int fd = open("path", O_RDONLY);
-    char buffer[MAX_SIZE];
-    read (fd, &buffer, MAX_SIZE);
-    close(fd);
-    int i=0, j=0;
+    //Command failed. Do:
     
-    while(i<MAX_SIZE){
-        if (buffer[i]==':'){
-            int path_length = i-j;
-            int cmd_length = strlen(ecmd->argv[0]);
-            int total_length = path_length + cmd_length;
-            char new_path[total_length];
-            int k, l, m;
-            
-            for(k=0;k<path_length;k++){
-                new_path[k] = (buffer+j)[k];
-            }
-            m = 0;
-            for(l=k ;l<total_length;l++){
-              new_path[l] = ecmd->argv[0][m];
-              m++;
-            }
-            new_path[l]='\0';
-            exec(new_path, ecmd->argv);
-            
-            //here == the current path wasn't correct, keep running:
-            j=i+1;
+    //A case of Absulote path:
+    if(ecmd->argv[0][0] == 47){                                 //char: '/'
+        printf(2, "exec %s failed\n", ecmd->argv[0]);
+        break;
+    }*/
+    
+    //A case of relative path, look for the binary in all directories defined by PATH if and only if user provided:  
+    else {
+        int fd = open("/path", O_RDONLY);
+        int i, j;
+        char buffer[MAX_SIZE];
+        
+        i=0;
+        while (i< MAX_SIZE){
+            buffer[i]=0; 
             i++;
         }
-        else{
-            i++;
-        }
+        
+        read (fd, &buffer, MAX_SIZE);
+        close(fd);
+        
+        i=0; 
+        j=0; 
+        while(i<MAX_SIZE) 
+        { 
+            if (buffer[i]==':' || buffer[i]==0){
+            
+                int path_length = i-j;
+                int cmd_length = strlen(ecmd->argv[0]);
+                int total_length = path_length + cmd_length;
+                char new_path[total_length+1];
+                int k, l, m;
+                
+                for(k=0;k<path_length;k++){
+                    new_path[k] = (buffer+j)[k];
+                }
+                m = 0;
+                for(l=k ;l<=total_length;l++){
+                new_path[l] = ecmd->argv[0][m];
+                m++;
+                }
+                new_path[l]='\0';
+                exec(new_path, ecmd->argv);                                    
+                
+                if (buffer[i]==0){
+                    break;
+                }
+                
+                //The current path wasn't correct, keep searching:
+                j=i+1;
+                i++;
+                
+            }
+            else{
+                i++;
+            }
+        }//while
     }
-    //here == we searched for the cmd in all paths and still didn't find it. error:  
+
+    //We searched for the cmd in all paths and still didn't find it. error:  
     printf(2, "exec %s failed\n", ecmd->argv[0]);
     break;
-//changed - 1.1 - end
-    
+        
+//Changed - 1.1 - end
 
+
+    
   case REDIR:
     rcmd = (struct redircmd*)cmd;
     close(rcmd->fd);
