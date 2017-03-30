@@ -192,10 +192,6 @@ exit(int status)
   if(proc == initproc)
     panic("init exiting");
   
-  //2.1 changed - start
-  proc->exit_status = status;
-  //2.1 changed - end
-
   // Close all open files.
   for(fd = 0; fd < NOFILE; fd++){
     if(proc->ofile[fd]){
@@ -225,6 +221,11 @@ exit(int status)
 
   // Jump into the scheduler, never to return.
   proc->state = ZOMBIE;
+  
+  //2.1 changed - start
+  proc->exit_status = status;
+  //2.1 changed - end
+  
   sched();
   panic("zombie exit");
 }
@@ -232,7 +233,7 @@ exit(int status)
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-wait(void)
+wait(int *status)
 {
   struct proc *p;
   int havekids, pid;
@@ -248,6 +249,7 @@ wait(void)
       if(p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
+        int child_status = p->exit_status;               //2.2 changed
         kfree(p->kstack);
         p->kstack = 0;
         freevm(p->pgdir);
@@ -256,7 +258,14 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
+        p->exit_status = 0;
         release(&ptable.lock);
+        if (status == 0){                               //2.2 changed
+            return 0;
+        }
+        else{
+            *status=child_status;
+        } 
         return pid;
       }
     }
