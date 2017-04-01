@@ -11,7 +11,7 @@ void
 pseudo_main(int (*entry)(int, char**), int argc, char **argv) 
 {
 	entry(argc, argv);
-	asm("push %eax; movl $2, %eax; int $64");
+	asm("push %eax; movl $2, %eax; push 0; int $64");
 }
 
 int
@@ -19,7 +19,7 @@ exec(char *path, char **argv)
 {
   char *s, *last;
   int i, off;
-  uint argc, sz, sp, ustack[3+MAXARG+1];
+  uint argc, sz, sp, ustack[4+MAXARG+1];
   uint pointer_pseudo_main;
   struct elfhdr elf;
   struct inode *ip;
@@ -68,6 +68,7 @@ exec(char *path, char **argv)
 
   pointer_pseudo_main = sz;  
 
+
   // Allocate two pages at the next page boundary.
   // Make the first inaccessible.  Use the second as the user stack.
   sz = PGROUNDUP(sz);
@@ -87,18 +88,18 @@ exec(char *path, char **argv)
     sp = (sp - (strlen(argv[argc]) + 1)) & ~3;
     if(copyout(pgdir, sp, argv[argc], strlen(argv[argc]) + 1) < 0)
       goto bad;
-    ustack[3+argc] = sp;
+    ustack[4+argc] = sp;
   }
-  ustack[3+argc] = 0;
+  ustack[4+argc] = 0;
 
   ustack[0] = 0xffffffff;  // fake return PC
   //2.3 - changed
-  ustack[1] = elf.entry;  // original main - now as a parameter
+  ustack[1] = elf.entry;  // 2.3 changed - original main - now as a parameter
   ustack[2] = argc;
   ustack[3] = sp - (argc+1)*4;  // argv pointer
 
   sp -= (4+argc+1) * 4;
-  if(copyout(pgdir, sp, ustack, (3+argc+1)*4) < 0)
+  if(copyout(pgdir, sp, ustack, (4+argc+1)*4) < 0)
     goto bad;
 
   // Save program name for debugging.
@@ -113,7 +114,7 @@ exec(char *path, char **argv)
   proc->sz = sz;
   //2.3 - changed
   //proc->tf->eip = elf.entry;  // main
-  proc->tf->eip = pointer_pseudo_main; 	//new entry point
+  proc->tf->eip = pointer_pseudo_main; 	//2.3 changed - new entry point
   proc->tf->esp = sp;
   switchuvm(proc);
   freevm(oldpgdir);
